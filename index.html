@@ -19,11 +19,11 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
-.w{max-width:1100px;margin:0 auto}
-h1{font-size:1.4rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 8px}
-.sub{color:var(--mu);font-size:.9rem;margin-bottom:12px}
+.w{max-width:1150px;margin:0 auto}
+h1{font-size:1.4rem;margin:0 0 8px}h2{font-size:1.05rem;margin:0 0 8px}h3{font-size:.95rem;margin:14px 0 6px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tb{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;font-size:.85rem;color:var(--mu)}
 .m{font-size:.8rem;color:var(--mu)}.v{font-size:1.2rem;font-weight:700;margin-top:2px}
 .pos{color:var(--ok)}.neg{color:var(--bad)}
 .sc{overflow-x:auto}
@@ -32,72 +32,93 @@ th{text-align:left;font-size:.75rem;color:var(--mu);padding:6px;border-bottom:1p
 td{padding:4px 6px;border-bottom:1px solid var(--bd)}
 .c{text-align:right;white-space:nowrap}th.c{text-align:right}
 input,select{width:100%;min-width:64px;padding:6px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:.9rem}
-button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:.9rem}
+.tb input,.tb select{width:auto}
+button,.btn{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.85rem;display:inline-block}
 button.x{background:transparent;color:var(--bad);padding:4px 8px;font-size:1.1rem}
+button.g{background:transparent;color:var(--mu);border:1px solid var(--bd)}
 .warn{background:var(--bad);color:#fff;padding:10px;border-radius:8px;margin-bottom:14px;display:none;white-space:pre-line}
 #msg{background:#b26a00}
 .note{font-size:.8rem;color:var(--mu);margin:0 0 8px}
 .tag{padding:2px 8px;border-radius:99px;font-size:.75rem;border:1px solid var(--bd)}
+#auth{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}#auth .card{max-width:360px;width:100%}
 </style>
 </head>
 <body>
 <div class="w">
-<h1>🥩 Karkas Parti, Üretim ve Müşteri Takibi</h1>
-<div class="sub">💾 Veriler bu tarayıcıda otomatik saklanır. <button class="x" style="color:var(--mu);font-size:.8rem;text-decoration:underline" onclick="resetAll(this)">Verileri Sıfırla</button> <button id="inst" style="display:none;margin-left:8px" onclick="doInstall()">📲 Uygulamayı Yükle</button></div>
+<h1>🥩 Karkas Parti, Satış ve Müşteri Takibi</h1>
+<div class="tb">
+ <span>📅 Dönem:</span>
+ <select id="pt" onchange="setPer()"><option value="month">Bu ay</option><option value="last">Geçen ay</option><option value="year">Bu yıl</option><option value="all">Tümü</option><option value="custom">Özel aralık</option></select>
+ <span id="pcu" style="display:none"><input type="date" id="pa" onchange="setPer()"> – <input type="date" id="pz" onchange="setPer()"></span>
+ <button class="g" onclick="exp()">⬇ Yedek İndir</button>
+ <label class="btn g" style="border:1px solid var(--bd)">⬆ Yedek Yükle (mevcut veriyi değiştirir)<input type="file" accept=".json" hidden onchange="imp(this)"></label>
+ <button class="g" onclick="arm(this,()=>{bat=[];prod=[];sal=[];pay=[];nid=1;R()})">Verileri Sıfırla</button>
+ <span id="cl"></span> <button class="g" id="lo" style="display:none" onclick="logout()">Çıkış</button>
+ <button id="inst" style="display:none" onclick="doInstall()">📲 Uygulamayı Yükle</button>
+</div>
 <div class="warn" id="msg"></div>
 <div class="warn" id="warn"></div>
 <div class="card"><div class="row" id="mt"></div></div>
 
-<div class="card sc"><h2>1) Karkas Partileri (stok yenilemek için yeni parti ekleyin)</h2>
-<p class="note">Parti stoğu eksiye düşemez: üretim partinin kalanından fazla girilirse otomatik sınırlanır. Parti KG'sini azaltırsanız (0 dahil) o partiden yapılan üretim ve buna bağlı satışlar otomatik düşürülür.</p>
+<div class="card sc"><h2>1) Açık Karkas Partileri</h2>
+<p class="note">Stok yenilemek için yeni parti ekleyin. Parti bitince "Kapat" ile arşivleyin; kapanan parti listeden kalkar, raporu "Parti Raporu"nda kalır. KG azaltırsanız (0 dahil) o partiden yapılan üretim ve satışlar otomatik düşer.</p>
 <table><thead><tr><th>Parti</th><th>Tarih</th><th>KG</th><th>Alış (TL/KG)</th><th class="c">Kullanılan</th><th class="c">Kalan KG</th><th>Durum</th><th class="c">Kalan Değer</th><th></th></tr></thead>
 <tbody id="bb"></tbody></table>
 <p><button onclick="addB()">+ Yeni Parti</button></p></div>
 
-<div class="card sc"><h2>2) Üretim (hangi partiden hangi ürün kaç KG çıktı)</h2>
-<p class="note">Fire 1.02 = %2 fire. Harcanan karkas = üretilen KG × fire. Ürün maliyeti, kullanılan partilerin fiyatlarının ağırlıklı ortalamasıdır.</p>
-<table><thead><tr><th>Ürün</th><th>Parti</th><th>Fire</th><th>Üretilen KG</th><th class="c">Harcanan Karkas</th><th class="c">Maliyet</th><th></th></tr></thead>
-<tbody id="pb"></tbody></table>
+<div class="card"><h2>2) Parti İşlemleri</h2>
+<div class="tb"><span>Çalışılan parti:</span><select id="sel" onchange="cur=+this.value;R()"></select><span id="selinfo"></span></div>
+<div id="ops">
+<h3>Üretim</h3><p class="note">Fire 1.02 = %2 fire. Parti karkası bitince üretim girişi otomatik sınırlanır.</p>
+<div class="sc"><table><thead><tr><th>Ürün</th><th>Fire</th><th>Üretilen KG</th><th class="c">Harcanan Karkas</th><th class="c">Maliyet</th><th></th></tr></thead><tbody id="pb"></tbody></table></div>
 <datalist id="pn"></datalist>
-<p><button onclick="addP()">+ Üretim Kaydı</button></p></div>
-
-<div class="card sc"><h2>3) Satışlar (müşteri başına farklı fiyat)</h2>
-<table><thead><tr><th>Müşteri</th><th>Ürün</th><th>KG</th><th>Satış (TL/KG)</th><th class="c">Tutar</th><th class="c">Maliyet</th><th class="c">Kâr</th><th></th></tr></thead>
-<tbody id="lb"></tbody></table>
+<p><button onclick="addP()">+ Üretim Kaydı</button></p>
+<h3>Bu Partinin Satışları</h3>
+<div class="sc"><table><thead><tr><th>Tarih</th><th>Müşteri</th><th>Ürün</th><th>KG</th><th>Satış (TL/KG)</th><th class="c">Tutar</th><th class="c">Maliyet</th><th class="c">Kâr</th><th></th></tr></thead><tbody id="lb"></tbody></table></div>
 <datalist id="cs"></datalist>
-<p><button onclick="addS()">+ Satış Ekle</button></p></div>
+<p><button onclick="addS()">+ Satış Ekle</button></p>
+</div></div>
 
-<div class="card sc"><h2>4) Tahsilatlar</h2>
-<table><thead><tr><th>Müşteri</th><th>Tarih</th><th>Tahsilat (TL)</th><th>Not</th><th></th></tr></thead>
-<tbody id="tc"></tbody></table>
+<div class="card sc"><h2>3) Tahsilatlar (sürekli, partiden bağımsız)</h2>
+<p class="note">Listede seçili dönemin tahsilatları görünür; tüm geçmiş için dönemi "Tümü" yapın veya müşteri ekstresine bakın.</p>
+<table><thead><tr><th>Müşteri</th><th>Tarih</th><th>Tahsilat (TL)</th><th>Not</th><th></th></tr></thead><tbody id="tc"></tbody></table>
 <p><button onclick="addPay()">+ Tahsilat Ekle</button></p></div>
 
-<div class="card sc"><h2>Müşteri Özeti ve Borç Durumu</h2>
-<table><thead><tr><th>Müşteri</th><th class="c">KG</th><th class="c">Toplam Satış</th><th class="c">Kâr</th><th class="c">Tahsil Edilen</th><th class="c">Kalan Borç</th></tr></thead>
-<tbody id="cb"></tbody></table></div>
+<div class="card sc"><h2>Müşteri Özeti</h2>
+<p class="note">Satış, kâr ve tahsilat seçili döneme göre; kalan borç tüm zamanlara göre hesaplanır.</p>
+<table><thead><tr><th>Müşteri</th><th class="c">KG</th><th class="c">Satış</th><th class="c">Kâr</th><th class="c">Tahsilat</th><th class="c">Toplam Kalan Borç</th></tr></thead><tbody id="cb"></tbody></table></div>
 
-<div class="card sc"><h2>Parti Karlılığı</h2>
-<p class="note">Satılan ürünlerin ciro ve maliyeti, üretimdeki KG oranına göre partilere dağıtılır. Yalnızca satılan kısım hesaba girer.</p>
-<table><thead><tr><th>Parti</th><th class="c">Alış</th><th class="c">Satılan Karkas</th><th class="c">Satılan Ürün</th><th class="c">Verim</th><th class="c">Ciro</th><th class="c">Maliyet</th><th class="c">Kâr</th><th class="c">Marj</th><th class="c">Kâr/KG Karkas</th></tr></thead>
-<tbody id="kk"></tbody></table></div>
+<div class="card sc"><h2>Müşteri Ekstresi (aylık devir)</h2>
+<div class="tb"><select id="ec" onchange="ekC=this.value;calc()"></select><input type="month" id="em" onchange="ekM=this.value||T.slice(0,7);calc()"></div>
+<table><thead><tr><th>Tarih</th><th>Açıklama</th><th class="c">Borç (+)</th><th class="c">Tahsilat (−)</th><th class="c">Bakiye</th></tr></thead><tbody id="eb"></tbody></table></div>
 
-<div class="card sc"><h2>Ürün Stok Özeti</h2>
-<table><thead><tr><th>Ürün</th><th class="c">Üretilen</th><th class="c">Satılan</th><th class="c">Kalan</th><th class="c">Birim Maliyet</th><th class="c">Kalan Stok Değeri</th></tr></thead>
-<tbody id="ps"></tbody></table></div>
+<div class="card sc"><h2>Parti Raporu (açık ve arşiv)</h2>
+<p class="note">Kâr, partinin satılan ürünlerinin gerçek maliyetine göre hesaplanır. Verim = üretilen ürün / harcanan karkas.</p>
+<table><thead><tr><th>Parti</th><th>Durum</th><th class="c">Alış</th><th class="c">Üretilen</th><th class="c">Verim</th><th class="c">Satılan</th><th class="c">Ciro</th><th class="c">Maliyet</th><th class="c">Kâr</th><th class="c">Marj</th><th class="c">Kâr/KG Karkas</th><th class="c">Kalan Karkas</th><th class="c">Satılmamış Ürün</th><th></th></tr></thead><tbody id="kk"></tbody></table></div>
+
+<div class="card sc"><h2>Ürün Stoğu (açık partiler)</h2>
+<table><thead><tr><th>Parti</th><th>Ürün</th><th class="c">Üretilen</th><th class="c">Satılan</th><th class="c">Kalan</th><th class="c">Birim Maliyet</th><th class="c">Kalan Değer</th></tr></thead><tbody id="ps"></tbody></table></div>
 </div>
+<div id="auth"><div class="card"><h2>🥩 Karkas Takip – Giriş</h2>
+<p class="note">Verileriniz hesabınıza bağlı olarak saklanır ve tüm cihazlarınızda görünür.</p>
+<input id="ae" type="email" placeholder="E-posta" autocomplete="username"><div style="height:8px"></div>
+<input id="ap" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="current-password" onkeydown="if(event.key=='Enter')doAuth(0)">
+<p id="am" class="note neg"></p>
+<button onclick="doAuth(0)">Giriş Yap</button> <button class="g" onclick="doAuth(1)">Kayıt Ol</button></div></div>
 <script>
-const KEY="karkas_takip_v2",T=new Date().toISOString().slice(0,10);
-let nid=3;
-let bat=[{id:1,n:"Parti 1",d:T,k:100,p:500},{id:2,n:"Parti 2",d:T,k:60,p:520}];
+const KEY="karkas_takip_v3",T=new Date().toISOString().slice(0,10);
+let nid=3,cur=0,ekC="",ekM=T.slice(0,7),ekK="";
+let bat=[{id:1,n:"Parti 1",d:T,k:100,p:500,c:0},{id:2,n:"Parti 2",d:T,k:60,p:520,c:0}];
 let prod=[{n:"KUŞBAŞI",b:1,f:1.02,q:20},{n:"KIYMA",b:1,f:1.02,q:20},{n:"BİFTEK",b:1,f:1.02,q:40},{n:"PİRZOLA",b:2,f:1.02,q:10}];
-let sal=[{m:"Müşteri 1",u:"KUŞBAŞI",k:10,p:1000},{m:"Müşteri 2",u:"KUŞBAŞI",k:8,p:950},{m:"Müşteri 1",u:"BİFTEK",k:25,p:1200},{m:"Müşteri 3",u:"KIYMA",k:15,p:700}];
-let pay=[{m:"Müşteri 1",d:T,a:10000,n:"Peşinat"}];
-try{const d=JSON.parse(localStorage.getItem(KEY)||"null");
- if(d&&[d.bat,d.prod,d.sal,d.pay].every(Array.isArray)){bat=d.bat;prod=d.prod;sal=d.sal;pay=d.pay;nid=d.nid||100}}catch(e){}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({bat,prod,sal,pay,nid}))}catch(e){}}
-let rst=false;
-function resetAll(b){if(!rst){rst=true;b.textContent="Emin misiniz? Tekrar tıklayın";setTimeout(()=>{rst=false;b.textContent="Verileri Sıfırla"},4000);return}
- try{localStorage.removeItem(KEY)}catch(e){}location.reload()}
+let sal=[{b:1,d:T,m:"Müşteri 1",u:"KUŞBAŞI",k:10,p:1000},{b:1,d:T,m:"Müşteri 2",u:"KUŞBAŞI",k:8,p:950},{b:1,d:T,m:"Müşteri 1",u:"BİFTEK",k:25,p:1200},{b:1,d:T,m:"Müşteri 3",u:"KIYMA",k:15,p:700}];
+let pay=[{m:"Müşteri 1",d:T,a:10000,n:"Peşinat"}],per={t:"month",a:"",z:""};
+const hadLocal=!!(localStorage.getItem(KEY)||localStorage.getItem("karkas_takip_v2"));
+try{let d=JSON.parse(localStorage.getItem(KEY)||"null");
+ if(!d){const o=JSON.parse(localStorage.getItem("karkas_takip_v2")||"null");
+  if(o&&Array.isArray(o.bat))d={bat:o.bat,prod:o.prod,pay:o.pay,nid:o.nid,sal:o.sal.map(s=>{const l=o.prod.find(x=>x.n==s.u);return{b:l?l.b:o.bat[0].id,d:T,m:s.m,u:s.u,k:s.k,p:s.p}})}}
+ if(d&&[d.bat,d.prod,d.sal,d.pay].every(Array.isArray)){bat=d.bat;prod=d.prod;sal=d.sal;pay=d.pay;per=d.per||per;nid=d.nid||100}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({bat,prod,sal,pay,per,nid}))}catch(e){}
+ if(ses&&!loading){dirty=true;clearTimeout(st);cst("☁ Kaydediliyor…");st=setTimeout(push,900)}}
 const $=id=>document.getElementById(id);
 const fmt=(x,d=2)=>x.toLocaleString("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const num=v=>{v=parseFloat(v);return isNaN(v)?0:v};
@@ -105,98 +126,175 @@ const esc=s=>String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g
 const inp=(v,h,id="",ev="oninput")=>`<input ${id?`id="${id}"`:""} type="number" min="0" step="any" value="${esc(v)}" ${ev}="${h}">`;
 const B=id=>bat.find(x=>x.id==id);
 const used=(id,ex)=>prod.reduce((s,l,i)=>i!=ex&&l.b==id?s+l.q*l.f:s,0);
-const madeOf=n=>prod.reduce((s,l)=>l.n==n?s+l.q:s,0);
-let tm;function note(t){const e=$("msg");e.textContent=t;e.style.display="block";clearTimeout(tm);tm=setTimeout(()=>e.style.display="none",6000)}
+const madeBN=(b,n)=>prod.reduce((s,l)=>l.b==b&&l.n==n?s+l.q:s,0);
 const fl=x=>Math.max(0,Math.floor(x*100+1e-6)/100);
+const cls=x=>"c "+(x>=0?"pos":"neg");
+const nm=n=>(n||"-").trim()||"-";
+let tm;function note(t){const e=$("msg");e.textContent=t;e.style.display="block";clearTimeout(tm);tm=setTimeout(()=>e.style.display="none",7000)}
+const arm=(b,fn)=>{if(b.dataset.a){fn();return}b.dataset.a=1;const o=b.textContent;b.textContent="Emin misiniz? Tekrar tıklayın";setTimeout(()=>{delete b.dataset.a;b.textContent=o},4000)};
+const pm=()=>{const[y,m]=T.split("-").map(Number),d=new Date(y,m-2,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+const inP=d=>{d=d||"";const t=per.t;return t=="all"||(t=="month"&&d.slice(0,7)==T.slice(0,7))||(t=="last"&&d.slice(0,7)==pm())||(t=="year"&&d.slice(0,4)==T.slice(0,4))||(t=="custom"&&(!per.a||d>=per.a)&&(!per.z||d<=per.z))};
+function syncPer(){$("pt").value=per.t;$("pa").value=per.a;$("pz").value=per.z;$("pcu").style.display=per.t=="custom"?"inline":"none"}
+function setPer(){per.t=$("pt").value;per.a=$("pa").value;per.z=$("pz").value;syncPer();R()}
+function allPer(d){if(!inP(d)){per.t="all";syncPer()}}
 
-function drawBat(){$("bb").innerHTML=bat.map((b,i)=>`<tr><td><input value="${esc(b.n)}" onchange="bat[${i}].n=this.value;drawProd()"></td>
-<td><input type="date" value="${esc(b.d)}" oninput="bat[${i}].d=this.value;save()"></td>
+function exp(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({bat,prod,sal,pay,per,nid})],{type:"application/json"}));a.download="karkas-yedek-"+T+".json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+function imp(f){if(!f.files[0])return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(![d.bat,d.prod,d.sal,d.pay].every(Array.isArray))throw 0;setState(d);R();note("✅ Yedek yüklendi.")}catch(e){note("⚠️ Geçersiz yedek dosyası.")}};r.readAsText(f.files[0])}
+
+function R(){const o=bat.filter(b=>!b.c);if(!o.some(b=>b.id==cur))cur=o.length?o[0].id:0;
+ drawBat();drawSel();drawProd();drawSal();drawPay();calc()}
+function drawBat(){$("bb").innerHTML=bat.map((b,i)=>b.c?"":`<tr><td><input value="${esc(b.n)}" onchange="bat[${i}].n=this.value;R()"></td>
+<td><input type="date" value="${esc(b.d)}" oninput="bat[${i}].d=this.value;calc()"></td>
 <td>${inp(b.k,`setBk(${i},this.value)`,"bk"+i,"onchange")}</td><td>${inp(b.p,`bat[${i}].p=num(this.value);calc()`)}</td>
 <td class="c" id="bu${i}"></td><td class="c" id="br${i}"></td><td id="bs${i}"></td><td class="c" id="bv${i}"></td>
-<td><button class="x" onclick="delB(${i})">×</button></td></tr>`).join("");calc()}
-function fixSales(){let ch=false;
- [...new Set(sal.map(s=>s.u))].forEach(n=>{let over=sal.reduce((t,s)=>s.u==n?t+s.k:t,0)-madeOf(n);
-  for(let j=sal.length-1;j>=0&&over>1e-9;j--){const s=sal[j];if(s.u!=n)continue;const c=Math.min(s.k,over);s.k=fl(s.k-c);over-=c;ch=true}});return ch}
+<td class="c" style="white-space:nowrap"><button class="g" onclick="arm(this,()=>closeB(${i}))">Kapat</button><button class="x" onclick="delB(${i})">×</button></td></tr>`).join("")}
 function setBk(i,v){const b=bat[i],k=num(v),u=used(b.id,-1);b.k=k;
- if(u>k+1e-9){let ex=u-k;
-  for(let j=prod.length-1;j>=0&&ex>1e-9;j--){const l=prod[j];if(l.b!=b.id)continue;const c=Math.min(l.q*l.f,ex);l.q=fl(l.q-c/l.f);ex-=c}
-  const sc=fixSales();
-  note(`⚠️ ${b.n} partisi ${fmt(k)} KG'ye düşürüldü: bu partiden yapılan üretim ${fmt(u-used(b.id,-1))} KG karkas kadar azaltıldı${sc?" ve satışlar stoğa göre düşürüldü":""}.`);
-  drawProd();drawSal()}else calc()}
-function addB(){bat.push({id:nid,n:"Parti "+nid,d:T,k:0,p:0});nid++;drawBat();drawProd()}
-function delB(i){if(prod.some(l=>l.b==bat[i].id)){note("⚠️ Bu partide üretim kaydı var; önce kayıtları silin.");return}bat.splice(i,1);drawBat();drawProd()}
+ if(u>k+1e-9){let ex=u-k;for(let j=prod.length-1;j>=0&&ex>1e-9;j--){const l=prod[j];if(l.b!=b.id)continue;const c=Math.min(l.q*l.f,ex);l.q=fl(l.q-c/l.f);ex-=c}
+  const sc=fixSales();note(`⚠️ ${b.n} partisi ${fmt(k)} KG'ye düşürüldü: üretim ${fmt(u-used(b.id,-1))} KG karkas kadar azaltıldı${sc?" ve satışlar stoğa göre düşürüldü":""}.`);R()}else calc()}
+function fixSales(){let ch=false;
+ [...new Set(sal.map(s=>s.b+"|"+s.u))].forEach(key=>{const[b,u]=key.split("|");let over=sal.reduce((t,s)=>s.b==b&&s.u==u?t+s.k:t,0)-madeBN(b,u);
+  for(let j=sal.length-1;j>=0&&over>1e-9;j--){const s=sal[j];if(s.b!=b||s.u!=u)continue;const c=Math.min(s.k,over);s.k=fl(s.k-c);over-=c;ch=true}});return ch}
+function addB(){bat.push({id:nid,n:"Parti "+nid,d:T,k:0,p:0,c:0});cur=nid;nid++;R()}
+function delB(i){const id=bat[i].id;if(prod.some(l=>l.b==id)||sal.some(s=>s.b==id)){note("⚠️ Bu partide üretim/satış kaydı var; önce kayıtları silin ya da partiyi kapatın.");return}bat.splice(i,1);R()}
+function closeB(i){bat[i].c=1;bat[i].cd=T;R();note(`✅ ${bat[i].n} kapatıldı ve arşive taşındı. Raporu "Parti Raporu" bölümünde görebilirsiniz.`)}
+function reopen(i){bat[i].c=0;cur=bat[i].id;R()}
 
-function drawProd(){$("pb").innerHTML=prod.map((l,i)=>`<tr><td><input list="pn" value="${esc(l.n)}" onchange="renP(${i},this.value)"></td>
-<td><select onchange="setP(${i},'b',this.value)">${bat.map(b=>`<option value="${b.id}" ${b.id==l.b?"selected":""}>${esc(b.n)} (kalan ${fmt(b.k-used(b.id,-1))})</option>`).join("")}</select></td>
+function drawSel(){const o=bat.filter(b=>!b.c);
+ $("sel").innerHTML=o.length?o.map(b=>`<option value="${b.id}" ${b.id==cur?"selected":""}>${esc(b.n)}</option>`).join(""):"<option>— Açık parti yok —</option>";
+ $("ops").style.display=o.length?"block":"none"}
+function drawProd(){$("pb").innerHTML=prod.map((l,i)=>l.b!=cur?"":`<tr><td><input list="pn" value="${esc(l.n)}" onchange="renP(${i},this.value)"></td>
 <td>${inp(l.f,`setP(${i},'f',this.value)`)}</td><td>${inp(l.q,`setP(${i},'q',this.value)`,"pq"+i)}</td>
-<td class="c" id="pk${i}"></td><td class="c" id="pm${i}"></td><td><button class="x" onclick="delP(${i})">×</button></td></tr>`).join("");calc()}
-function renP(i,v){const o=prod[i].n;prod[i].n=v;if(!prod.some(x=>x.n==o))sal.forEach(s=>{if(s.u==o)s.u=v});drawSal()}
-function setP(i,k,v){const l=prod[i];l[k]=k=="q"?num(v):k=="f"?Math.max(num(v),1):+v;
+<td class="c" id="pk${i}"></td><td class="c" id="pm${i}"></td><td><button class="x" onclick="delP(${i})">×</button></td></tr>`).join("")}
+function renP(i,v){const o=prod[i].n,b=prod[i].b;prod[i].n=v;if(!prod.some(x=>x.b==b&&x.n==o))sal.forEach(s=>{if(s.b==b&&s.u==o)s.u=v});R()}
+function setP(i,k,v){const l=prod[i];l[k]=k=="q"?num(v):Math.max(num(v),1);
  const b=B(l.b);if(b){const mx=fl((b.k-used(l.b,i))/l.f);
   if(l.q>mx+1e-9){l.q=mx;$("pq"+i).value=mx;note(`⚠️ ${b.n} partisinde yeterli stok yok; üretim ${fmt(mx)} KG ile sınırlandı.`)}}
- calc()}
-function addP(){if(!bat.length){note("Önce bir parti ekleyin.");return}prod.push({n:"YENİ ÜRÜN",b:bat[0].id,f:1.02,q:0});drawProd();drawSal()}
-function delP(i){const n=prod[i].n;prod.splice(i,1);if(!prod.some(x=>x.n==n))sal=sal.filter(s=>s.u!=n);fixSales();drawProd();drawSal()}
+ if(fixSales())R();else calc()}
+function addP(){if(!cur){note("Önce açık bir parti ekleyin.");return}prod.push({n:"YENİ ÜRÜN",b:cur,f:1.02,q:0});R()}
+function delP(i){const{b,n}=prod[i];prod.splice(i,1);if(!prod.some(x=>x.b==b&&x.n==n))sal=sal.filter(s=>!(s.b==b&&s.u==n));else fixSales();R()}
 
-function drawSal(){const names=[...new Set(prod.map(l=>l.n))];
- $("lb").innerHTML=sal.map((r,i)=>`<tr><td><input list="cs" value="${esc(r.m)}" oninput="sal[${i}].m=this.value;calc()"></td>
+function drawSal(){const names=[...new Set(prod.filter(l=>l.b==cur).map(l=>l.n))];
+ $("lb").innerHTML=sal.map((r,i)=>r.b!=cur?"":`<tr><td><input type="date" value="${esc(r.d)}" oninput="sal[${i}].d=this.value;calc()"></td>
+<td><input list="cs" value="${esc(r.m)}" oninput="sal[${i}].m=this.value;calc()"></td>
 <td><select onchange="setS(${i},'u',this.value)">${names.map(n=>`<option ${n==r.u?"selected":""}>${esc(n)}</option>`).join("")}</select></td>
 <td>${inp(r.k,`setS(${i},'k',this.value)`,"sk"+i)}</td><td>${inp(r.p,`sal[${i}].p=num(this.value);calc()`)}</td>
-<td class="c" id="lt${i}"></td><td class="c" id="lm${i}"></td><td class="c" id="lp${i}"></td><td><button class="x" onclick="delS(${i})">×</button></td></tr>`).join("");calc()}
+<td class="c" id="lt${i}"></td><td class="c" id="lm${i}"></td><td class="c" id="lp${i}"></td><td><button class="x" onclick="sal.splice(${i},1);R()">×</button></td></tr>`).join("")}
 function setS(i,k,v){const r=sal[i];r[k]=k=="k"?num(v):v;
- const oth=sal.reduce((s,x,j)=>j!=i&&x.u==r.u?s+x.k:s,0),mx=fl(madeOf(r.u)-oth);
- if(r.k>mx+1e-9){r.k=mx;$("sk"+i).value=mx;note(`⚠️ ${r.u}: satılabilir stok ${fmt(mx)} KG ile sınırlandı.`)}
- calc()}
-function addS(){if(!prod.length){note("Önce üretim kaydı ekleyin.");return}sal.push({m:"Yeni Müşteri",u:prod[0].n,k:0,p:0});drawSal()}
-function delS(i){sal.splice(i,1);drawSal()}
+ const oth=sal.reduce((s,x,j)=>j!=i&&x.b==r.b&&x.u==r.u?s+x.k:s,0),mx=fl(madeBN(r.b,r.u)-oth);
+ if(r.k>mx+1e-9){r.k=mx;$("sk"+i).value=mx;note(`⚠️ ${r.u}: bu partide satılabilir stok ${fmt(mx)} KG ile sınırlandı.`)}calc()}
+function addS(){const l=prod.find(x=>x.b==cur);if(!l){note("Önce bu partiye üretim kaydı ekleyin.");return}allPer(T);sal.push({b:cur,d:T,m:"Yeni Müşteri",u:l.n,k:0,p:0});R()}
 
-function drawPay(){$("tc").innerHTML=pay.map((r,i)=>`<tr><td><input list="cs" value="${esc(r.m)}" oninput="pay[${i}].m=this.value;calc()"></td>
-<td><input type="date" value="${esc(r.d)}" oninput="pay[${i}].d=this.value;save()"></td>
+function drawPay(){$("tc").innerHTML=pay.map((r,i)=>!inP(r.d)?"":`<tr><td><input list="cs" value="${esc(r.m)}" oninput="pay[${i}].m=this.value;calc()"></td>
+<td><input type="date" value="${esc(r.d)}" oninput="pay[${i}].d=this.value;calc()"></td>
 <td>${inp(r.a,`pay[${i}].a=num(this.value);calc()`)}</td>
 <td><input value="${esc(r.n)}" oninput="pay[${i}].n=this.value;save()"></td>
-<td><button class="x" onclick="delPay(${i})">×</button></td></tr>`).join("");calc()}
-function addPay(){pay.push({m:sal.length?sal[0].m:"",d:T,a:0,n:""});drawPay()}
-function delPay(i){pay.splice(i,1);drawPay()}
+<td><button class="x" onclick="pay.splice(${i},1);R()">×</button></td></tr>`).join("")}
+function addPay(){allPer(T);pay.push({m:sal.length?sal[sal.length-1].m:"",d:T,a:0,n:""});R()}
 
-const cls=x=>"c "+(x>=0?"pos":"neg");
 function calc(){save();
- const made={},cost={},rev={},sold={},warns=[];
- prod.forEach((l,i)=>{const b=B(l.b),c=l.q*l.f,m=b?c*b.p:0;made[l.n]=(made[l.n]||0)+l.q;cost[l.n]=(cost[l.n]||0)+m;
-  $("pk"+i).textContent=fmt(c);$("pm"+i).textContent=fmt(m)+" TL"});
- const unit=n=>made[n]?cost[n]/made[n]:0;
- $("pn").innerHTML=Object.keys(made).map(n=>`<option value="${esc(n)}">`).join("");
- let ciro=0,cogs=0;const cust={};
- sal.forEach((r,i)=>{const t=r.k*r.p,m=r.k*unit(r.u),p=t-m;ciro+=t;cogs+=m;sold[r.u]=(sold[r.u]||0)+r.k;rev[r.u]=(rev[r.u]||0)+t;
-  $("lt"+i).textContent=fmt(t)+" TL";$("lm"+i).textContent=fmt(m)+" TL";$("lp"+i).textContent=fmt(p)+" TL";$("lp"+i).className=cls(p);
-  const n=(r.m||"-").trim()||"-";const c=cust[n]||(cust[n]={k:0,t:0,p:0,h:0});c.k+=r.k;c.t+=t;c.p+=p});
- pay.forEach(r=>{const n=(r.m||"-").trim()||"-";const c=cust[n]||(cust[n]={k:0,t:0,p:0,h:0});c.h+=r.a});
- let raw=0,remKg=0,remVal=0;
- bat.forEach((b,i)=>{const u=used(b.id,-1),rem=b.k-u,fin=rem<=0.005&&b.k>0;raw+=b.k*b.p;remKg+=rem;remVal+=Math.max(rem,0)*b.p;
-  $("bu"+i).textContent=fmt(u);$("br"+i).textContent=fmt(rem);$("bv"+i).textContent=fmt(Math.max(rem,0)*b.p)+" TL";
-  $("bs"+i).innerHTML=`<span class="tag ${fin?"neg":"pos"}">${fin?"Bitti":"Açık"}</span>`});
- const bs=bat.map(()=>({kg:0,out:0,rev:0}));
- prod.forEach(l=>{const j=bat.findIndex(b=>b.id==l.b);if(j<0||!made[l.n])return;const sh=(sold[l.n]||0)/made[l.n];
-  bs[j].out+=l.q*sh;bs[j].kg+=l.q*sh*l.f;bs[j].rev+=(rev[l.n]||0)/made[l.n]*l.q});
- $("kk").innerHTML=bat.map((b,j)=>{const k=bs[j],cg=k.kg*b.p,pr=k.rev-cg;
-  return `<tr><td>${esc(b.n)}</td><td class="c">${fmt(b.p)}</td><td class="c">${fmt(k.kg)}</td><td class="c">${fmt(k.out)}</td><td class="c">%${fmt(k.kg>0?k.out/k.kg*100:0,1)}</td><td class="c">${fmt(k.rev)} TL</td><td class="c">${fmt(cg)} TL</td><td class="${cls(pr)}">${fmt(pr)} TL</td><td class="${cls(pr)}">%${fmt(k.rev>0?pr/k.rev*100:0,1)}</td><td class="${cls(pr)}">${fmt(k.kg>0?pr/k.kg:0)} TL</td></tr>`}).join("");
- let stokVal=0;
- $("ps").innerHTML=Object.keys(made).map(n=>{const rem=made[n]-(sold[n]||0),v=Math.max(rem,0)*unit(n);stokVal+=v;
-  if(rem<-0.005)warns.push(`⚠️ ${n}: üretilenden ${fmt(-rem)} KG fazla satış var`);
-  return `<tr><td>${esc(n)}</td><td class="c">${fmt(made[n])}</td><td class="c">${fmt(sold[n]||0)}</td><td class="${rem>=0?"c":"c neg"}">${fmt(rem)}</td><td class="c">${fmt(unit(n))} TL</td><td class="c">${fmt(v)} TL</td></tr>`}).join("");
- Object.keys(sold).forEach(n=>{if(!(n in made))warns.push(`⚠️ ${n}: üretim kaydı olmayan ürün satılmış`)});
- let alacak=0;
- $("cb").innerHTML=Object.keys(cust).map(n=>{const c=cust[n],b=c.t-c.h;alacak+=b;
+ const S=(id,t,c)=>{const e=$(id);if(e){e.textContent=t;if(c)e.className=c}};
+ const mk={},warns=[];
+ prod.forEach(l=>{const k=l.b+"|"+l.n,o=mk[k]||(mk[k]={q:0,c:0,s:0,b:l.b,n:l.n});o.q+=l.q;o.c+=l.q*l.f});
+ const uc=(b,n)=>{const o=mk[b+"|"+n],bt=B(b);return o&&o.q&&bt?o.c*bt.p/o.q:0};
+ prod.forEach((l,i)=>{const bt=B(l.b),c=l.q*l.f;S("pk"+i,fmt(c));S("pm"+i,fmt(bt?c*bt.p:0)+" TL")});
+ const bs={};bat.forEach(b=>bs[b.id]={rev:0,cg:0,sc:0,sk:0,mq:0,mc:0,uv:0});
+ let ciro=0,cogs=0,hp=0;const cust={};
+ const C=n=>{n=nm(n);return cust[n]||(cust[n]={k:0,t:0,p:0,h:0,T:0,H:0})};
+ sal.forEach((r,i)=>{const t=r.k*r.p,m=r.k*uc(r.b,r.u),p=t-m,o=mk[r.b+"|"+r.u],x=bs[r.b];
+  if(o)o.s+=r.k;if(x){x.rev+=t;x.cg+=m;x.sk+=r.k;x.sc+=o&&o.q?r.k*o.c/o.q:0}
+  S("lt"+i,fmt(t)+" TL");S("lm"+i,fmt(m)+" TL");S("lp"+i,fmt(p)+" TL",cls(p));
+  const c=C(r.m);c.T+=t;if(inP(r.d)){ciro+=t;cogs+=m;c.k+=r.k;c.t+=t;c.p+=p}});
+ pay.forEach(r=>{const c=C(r.m);c.H+=r.a;if(inP(r.d)){c.h+=r.a;hp+=r.a}});
+ Object.values(mk).forEach(o=>{const x=bs[o.b];if(x){x.mq+=o.q;x.mc+=o.c;x.uv+=Math.max(o.q-o.s,0)*uc(o.b,o.n)}
+  if(o.s>o.q+.005)warns.push(`⚠️ ${B(o.b)?B(o.b).n:""} / ${o.n}: üretilenden ${fmt(o.s-o.q)} KG fazla satış var`)});
+ let remKg=0,remVal=0,stokVal=0,alis=0;
+ bat.forEach((b,i)=>{const u=used(b.id,-1),rem=b.k-u;if(inP(b.d))alis+=b.k*b.p;
+  if(!b.c){remKg+=rem;remVal+=Math.max(rem,0)*b.p;stokVal+=bs[b.id].uv;
+   S("bu"+i,fmt(u));S("br"+i,fmt(rem));S("bv"+i,fmt(Math.max(rem,0)*b.p)+" TL");
+   const fin=rem<=0.005&&b.k>0;const e=$("bs"+i);if(e)e.innerHTML=`<span class="tag ${fin?"neg":"pos"}">${fin?"Karkas bitti":"Açık"}</span>`}});
+ $("kk").innerHTML=bat.map((b,i)=>{const x=bs[b.id],pr=x.rev-x.cg,u=used(b.id,-1);
+  return `<tr><td>${esc(b.n)}</td><td><span class="tag">${b.c?"Arşiv "+esc(b.cd||""):"Açık"}</span></td><td class="c">${fmt(b.p)}</td><td class="c">${fmt(x.mq)}</td><td class="c">%${fmt(x.mc>0?x.mq/x.mc*100:0,1)}</td><td class="c">${fmt(x.sk)}</td><td class="c">${fmt(x.rev)} TL</td><td class="c">${fmt(x.cg)} TL</td><td class="${cls(pr)}">${fmt(pr)} TL</td><td class="${cls(pr)}">%${fmt(x.rev>0?pr/x.rev*100:0,1)}</td><td class="${cls(pr)}">${fmt(x.sc>0?pr/x.sc:0)} TL</td><td class="c">${fmt(b.k-u)} KG</td><td class="c">${fmt(x.uv)} TL</td><td>${b.c?`<button class="g" onclick="reopen(${i})">Geri Aç</button>`:""}</td></tr>`}).join("");
+ $("ps").innerHTML=Object.values(mk).filter(o=>B(o.b)&&!B(o.b).c).map(o=>{const rem=o.q-o.s,u=uc(o.b,o.n);
+  return `<tr><td>${esc(B(o.b).n)}</td><td>${esc(o.n)}</td><td class="c">${fmt(o.q)}</td><td class="c">${fmt(o.s)}</td><td class="${rem>=0?"c":"c neg"}">${fmt(rem)}</td><td class="c">${fmt(u)} TL</td><td class="c">${fmt(Math.max(rem,0)*u)} TL</td></tr>`}).join("");
+ const cb=B(cur);if(cb){const x=bs[cb.id];S("selinfo",`Kalan karkas ${fmt(cb.k-used(cb.id,-1))} KG · Satılmamış ürün ${fmt(x.uv)} TL · Parti kârı ${fmt(x.rev-x.cg)} TL`)}else S("selinfo","")
+ let alacak=0;const names=Object.keys(cust);
+ $("cb").innerHTML=names.map(n=>{const c=cust[n],b=c.T-c.H;alacak+=b;
   return `<tr><td>${esc(n)}</td><td class="c">${fmt(c.k)}</td><td class="c">${fmt(c.t)} TL</td><td class="${cls(c.p)}">${fmt(c.p)} TL</td><td class="c">${fmt(c.h)} TL</td><td class="${b>0.005?"c neg":"c pos"}"><b>${fmt(b)} TL</b>${b<-0.005?" (fazla ödeme)":""}</td></tr>`}).join("");
- $("cs").innerHTML=Object.keys(cust).map(n=>`<option value="${esc(n)}">`).join("");
+ $("cs").innerHTML=names.map(n=>`<option value="${esc(n)}">`).join("");
+ $("pn").innerHTML=[...new Set(prod.map(l=>l.n))].map(n=>`<option value="${esc(n)}">`).join("");
+ drawEk(names);
  const kar=ciro-cogs,marj=ciro>0?kar/ciro*100:0;
  const box=(a,b,c)=>`<div><div class="m">${a}</div><div class="v ${c||""}">${b}</div></div>`;
- $("mt").innerHTML=box("💰 Toplam Karkas Alış Maliyeti",fmt(raw)+" TL")+box("📈 Toplam Satış Cirosu",fmt(ciro)+" TL")+
-  box("🧮 Satılanların Maliyeti",fmt(cogs)+" TL")+box("💵 Net Kâr / Zarar (%"+fmt(marj,1)+")",fmt(kar)+" TL",kar>=0?"pos":"neg")+
-  box("🥩 Kalan Karkas",fmt(remKg)+" KG ("+fmt(remVal)+" TL)")+box("📦 Satılmamış Ürün Stoğu",fmt(stokVal)+" TL")+
-  box("🧾 Toplam Müşteri Borcu",fmt(alacak)+" TL",alacak>0.005?"neg":"pos");
- const w=$("warn");w.style.display=warns.length?"block":"none";w.textContent=warns.join("\n");
-}
-drawBat();drawProd();drawSal();drawPay();
+ $("mt").innerHTML=box("📈 Satış Cirosu (dönem)",fmt(ciro)+" TL")+box("🧮 Satılanların Maliyeti (dönem)",fmt(cogs)+" TL")+
+  box("💵 Net Kâr (dönem, %"+fmt(marj,1)+")",fmt(kar)+" TL",kar>=0?"pos":"neg")+box("💳 Tahsilat (dönem)",fmt(hp)+" TL")+
+  box("🧾 Toplam Müşteri Borcu",fmt(alacak)+" TL",alacak>0.005?"neg":"pos")+box("🛒 Dönemde Alınan Karkas",fmt(alis)+" TL")+
+  box("🥩 Açık Partilerde Kalan Karkas",fmt(remKg)+" KG ("+fmt(remVal)+" TL)")+box("📦 Satılmamış Ürün (açık partiler)",fmt(stokVal)+" TL");
+ const w=$("warn");w.style.display=warns.length?"block":"none";w.textContent=warns.join("\n")}
+
+function drawEk(names){const sel=$("ec"),key=names.join("|");
+ if(ekK!=key){ekK=key;sel.innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join("")}
+ if(!names.includes(ekC))ekC=names[0]||"";sel.value=ekC;$("em").value=ekM;
+ const ev=[];
+ sal.forEach(r=>{if(nm(r.m)==ekC)ev.push({d:r.d||"",s:`Satış: ${r.u} ${fmt(r.k)} KG × ${fmt(r.p)} TL (${B(r.b)?esc(B(r.b).n):"-"})`,b:r.k*r.p,a:0})});
+ pay.forEach(r=>{if(nm(r.m)==ekC)ev.push({d:r.d||"",s:"Tahsilat"+(r.n?": "+esc(r.n):""),b:0,a:r.a})});
+ ev.sort((x,y)=>x.d.localeCompare(y.d));
+ const st=ekM+"-01";let bal=0,sb=0,sa=0;ev.forEach(e=>{if(e.d<st)bal+=e.b-e.a});
+ const bc=x=>x>0.005?"c neg":"c pos";
+ let h=`<tr><td></td><td><b>Devir bakiyesi (önceki aylardan)</b></td><td></td><td></td><td class="${bc(bal)}"><b>${fmt(bal)} TL</b></td></tr>`;
+ ev.filter(e=>e.d.slice(0,7)==ekM).forEach(e=>{bal+=e.b-e.a;sb+=e.b;sa+=e.a;
+  h+=`<tr><td>${esc(e.d)}</td><td>${e.s}</td><td class="c">${e.b?fmt(e.b):""}</td><td class="c">${e.a?fmt(e.a):""}</td><td class="${bc(bal)}">${fmt(bal)} TL</td></tr>`});
+ h+=`<tr><td></td><td><b>Ay toplamı / sonraki aya devir</b></td><td class="c"><b>${fmt(sb)}</b></td><td class="c"><b>${fmt(sa)}</b></td><td class="${bc(bal)}"><b>${fmt(bal)} TL</b></td></tr>`;
+ $("eb").innerHTML=h}
+
+
+/* ===== Supabase bulut katmanı ===== */
+const SB="https://amnsdomzyvlqvawiukck.supabase.co",PK="sb_publishable_G5lipa14lbIT6_QPFHHAfA_CVxpx1ag";
+let ses=null,rev=0,syncing=false,dirty=false,loading=false,st,last="";
+const cst=t=>{const e=$("cl");if(e)e.textContent=t};
+const getState=()=>({bat,prod,sal,pay,per,nid});
+const okState=d=>d&&[d.bat,d.prod,d.sal,d.pay].every(Array.isArray);
+function setState(d){bat=d.bat;prod=d.prod;sal=d.sal;pay=d.pay;per=d.per||per;nid=d.nid||nid;syncPer()}
+function setSes(j){if(!j){ses=null;localStorage.removeItem("sb_ses");return}
+ ses={access_token:j.access_token,refresh_token:j.refresh_token,exp:Math.floor(Date.now()/1000)+(j.expires_in||3600),uid:j.user?j.user.id:ses&&ses.uid,email:j.user?j.user.email:ses&&ses.email};
+ localStorage.setItem("sb_ses",JSON.stringify(ses))}
+function showAuth(){$("auth").style.display="flex";$("lo").style.display="none";cst("")}
+async function ensure(){if(ses&&ses.exp<Date.now()/1000+60){
+ const r=await fetch(SB+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{apikey:PK,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:ses.refresh_token})});
+ if(r.ok)setSes(await r.json());else if(r.status==400||r.status==401){setSes(null);showAuth();throw 0}}}
+async function api(path,opt={}){await ensure();return fetch(SB+path,{...opt,headers:{apikey:PK,"Content-Type":"application/json",Authorization:"Bearer "+ses.access_token,...(opt.headers||{})}})}
+async function doAuth(up){const e=$("ae").value.trim(),p=$("ap").value,m=$("am");m.textContent="";
+ if(!e||p.length<6){m.textContent="E-posta ve en az 6 karakterli şifre girin.";return}
+ try{const r=await fetch(SB+(up?"/auth/v1/signup":"/auth/v1/token?grant_type=password"),{method:"POST",headers:{apikey:PK,"Content-Type":"application/json"},body:JSON.stringify({email:e,password:p})});
+  const j=await r.json();
+  if(!r.ok){m.textContent=(j.msg||j.error_description||j.message||"Hata oluştu");return}
+  if(!j.access_token){m.textContent="Kayıt alındı. E-postanıza gelen onay bağlantısına tıklayıp sonra giriş yapın.";return}
+  setSes(j);$("auth").style.display="none";$("ap").value="";await loadCloud()}
+ catch(x){m.textContent="Bağlantı kurulamadı. İnternetinizi kontrol edin."}}
+async function loadCloud(){loading=true;cst("☁ Yükleniyor…");$("lo").style.display="inline-block";$("lo").textContent="Çıkış ("+(ses.email||"")+")";
+ try{const r=await api("/rest/v1/app_state?select=data,rev&limit=1");
+  if(r.status==401){setSes(null);showAuth();return}
+  if(!r.ok)throw 0;const a=await r.json();
+  if(a.length){rev=a[0].rev;if(okState(a[0].data))setState(a[0].data);R();last=JSON.stringify(getState());cst("☁ Senkron")}
+  else{if(!hadLocal)setState({bat:[],prod:[],sal:[],pay:[],nid:1});R();
+   const ins=await api("/rest/v1/app_state",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({data:getState()})});
+   if(!ins.ok)throw 0;const b=await ins.json();rev=b[0].rev;last=JSON.stringify(getState());cst("☁ Senkron");if(hadLocal)note("✅ Yerel verileriniz hesabınıza aktarıldı.")}}
+ catch(e){if(ses)cst("⚠ Çevrimdışı (yerel veri)")}
+ loading=false}
+async function push(){if(syncing){st=setTimeout(push,500);return}if(!dirty||!ses)return;
+ const js=JSON.stringify(getState());if(js===last){dirty=false;cst("☁ Senkron");return}
+ syncing=true;dirty=false;
+ try{const r=await api(`/rest/v1/app_state?user_id=eq.${ses.uid}&rev=eq.${rev}`,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({data:JSON.parse(js),rev:rev+1,updated_at:new Date().toISOString()})});
+  if(r.status==401){setSes(null);showAuth();throw 0}
+  if(!r.ok)throw 0;const a=await r.json();
+  if(!a.length){syncing=false;note("⚠️ Veriler başka bir cihazdan değişmiş; güncel veriler yüklendi. Son değişikliğinizi tekrar yapmanız gerekebilir.");await loadCloud();return}
+  rev=a[0].rev;last=js;if(!dirty)cst("☁ Senkron")}
+ catch(e){if(ses){dirty=true;cst("⚠ Kaydedilemedi, yeniden denenecek");setTimeout(push,8000)}}
+ syncing=false}
+function logout(){setSes(null);try{localStorage.removeItem(KEY);localStorage.removeItem("karkas_takip_v2")}catch(e){}location.reload()}
+async function boot(){try{ses=JSON.parse(localStorage.getItem("sb_ses")||"null")}catch(e){}
+ if(!ses){showAuth();return}await loadCloud()}
+
+syncPer();R();boot();
 let dip=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();dip=e;$("inst").style.display="inline-block"});
 window.addEventListener("appinstalled",()=>{$("inst").style.display="none"});
